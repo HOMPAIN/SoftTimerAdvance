@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="../SoftTimerAdvance/SoftTimerAdvance.vcxitems" Id="1d497453-04e0-4d68-9d02-a2a18104890d" />
+  <Project Path="STA_TestProj.vcxproj" Id="3440894d-bd28-485d-b4c6-cd1ccd9588cb" />
+</Solution>
