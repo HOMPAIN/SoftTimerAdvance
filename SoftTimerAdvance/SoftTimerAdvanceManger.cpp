@@ -30,7 +30,7 @@ void SoftTimerTelemetry_pp::AddWorkTime(uint32_t _WorkTime)
 //инициализация парамтетров мэнеджера, возращает количество таймеров доступных в пуле
 //_Res - разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
 //_Buff - буффер для пула таймеров, _BuffSize - размер буффера в байтах
-uint16_t SoftTimerManager::Init(uint16_t _Res, uint8_t* _Buff, uint32_t _BuffSize)
+uint16_t SoftTimerManager::Init(uint8_t* _Buff, uint32_t _BuffSize, STResolution _Res)
 {
     memset(this,0,sizeof(SoftTimerManager));
 
@@ -53,6 +53,21 @@ uint16_t SoftTimerManager::Init(uint16_t _Res, uint8_t* _Buff, uint32_t _BuffSiz
     return Size;
 }
 //работа таймера, передаётся текущее время, можно вызывать любую функцию
+void SoftTimerManager::Update(uint64_t _Time, STUnits _Units)
+{
+    switch (_Units)
+    {
+    case STUnits::Microseconds:
+        Update_us(_Time);
+        break;
+    case STUnits::Milliseconds:
+        Update_ms(_Time);
+        break;
+    case STUnits::Seconds:
+        Update_s(_Time);
+        break;
+    }
+}
 void SoftTimerManager::Update_us(uint64_t _uSeconds)
 {
     uSeconds = _uSeconds;

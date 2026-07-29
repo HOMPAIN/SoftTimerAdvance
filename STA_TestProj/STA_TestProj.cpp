@@ -36,7 +36,7 @@ void TaskFunc(STTask* Task)
 uint8_t t_buff[1024];
 int main()
 {
-    ST1.Init(1, t_buff, sizeof(t_buff));
+    ST1.Init(t_buff, sizeof(t_buff));
 
     auto now_start = std::chrono::system_clock::now();
     auto duration_start = now_start.time_since_epoch();
@@ -61,6 +61,6 @@ int main()
         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
         millis -= start_time;
 
-        ST1.Update_us(millis * 1000);
+        ST1.Update(millis);
     };
 }

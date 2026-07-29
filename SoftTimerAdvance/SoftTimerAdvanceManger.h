@@ -51,7 +51,7 @@ public:
     uint16_t Count;   //количество занятых таймеров
     uint16_t Iterator;//счётчик для перебора таймеров для запуска по обному за проход
 
-    uint16_t Resolution; //разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
+    STResolution Resolution; //разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
 
     //телеметрия таймера
     SoftTimerTelemetry_pp Telemetry;
@@ -65,9 +65,10 @@ public:
     //инициализация парамтетров мэнеджера, возращает количество таймеров доступных в пуле
     //_Res - разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
     //_Buff - буффер для пула таймеров, _BuffSize - размер буффера в байтах
-    uint16_t Init(uint16_t _Res, uint8_t * _Buff, uint32_t _BuffSize);
+    uint16_t Init(uint8_t * _Buff, uint32_t _BuffSize, STResolution _Res = STResolution::Bits32);
 
     //работа таймера, передаётся текущее время, можно вызывать любую функцию
+    void Update(uint64_t _Time, STUnits _Units = STUnits::Milliseconds);
     void Update_us(uint64_t _uSeconds);
     void Update_ms(uint64_t _mSeconds);
     void Update_s(uint64_t _Seconds);
