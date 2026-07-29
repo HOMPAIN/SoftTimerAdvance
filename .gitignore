@@ -1,0 +1,10 @@
+.vs/
+bin/
+obj/
+Debug/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.packages.config
+*.vcxproj.user
