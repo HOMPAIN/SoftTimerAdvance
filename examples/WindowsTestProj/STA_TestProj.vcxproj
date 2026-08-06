@@ -56,7 +56,6 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
-    <Import Project="..\SoftTimerAdvance\SoftTimerAdvance.vcxitems" Label="Shared" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -142,7 +141,18 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\SoftTimerAdvanceAdd.cpp" />
+    <ClCompile Include="..\..\src\SoftTimerAdvanceInterface.cpp" />
+    <ClCompile Include="..\..\src\SoftTimerAdvanceManger.cpp" />
+    <ClCompile Include="..\..\src\SoftTimerAdvanceTask.cpp" />
     <ClCompile Include="STA_TestProj.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\SoftTimerAdvance.h" />
+    <ClInclude Include="..\..\src\SoftTimerAdvanceInterface.h" />
+    <ClInclude Include="..\..\src\SoftTimerAdvanceManger.h" />
+    <ClInclude Include="..\..\src\SoftTimerAdvanceStructures.h" />
+    <ClInclude Include="..\..\src\SoftTimerAdvanceTask.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,7 +1,6 @@
-﻿// STA_TestProj.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
+﻿// Тестовый проект для отладки в Windows (Visual Studio Community)
 #include <iostream>
-#include "SoftTimerAdvance.h"
+#include "../../src/SoftTimerAdvance.h"
 #include <chrono>
 
 
