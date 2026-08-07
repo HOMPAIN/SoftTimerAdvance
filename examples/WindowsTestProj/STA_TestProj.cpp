@@ -2,9 +2,11 @@
 #include <iostream>
 #include "../../src/SoftTimerAdvance.h"
 #include <chrono>
+long micros();
+long millis();
 
 
-SoftTimerManager ST1;
+
 STTask Task1;
 
 
@@ -23,27 +25,22 @@ void test_print2()
 void TaskFunc(STTask* Task)
 {
     static int i = 0;
-    TaskBeginPP();
+    TaskBegin();
     for (i = 0; i < 10; i++)
     {
         std::cout << "hi!\n";
-        TaskDelayPP(500);
+        TaskDelay(500);
     };
-    TaskEndPP();
+    TaskEnd();
 }
 
+
 uint8_t t_buff[1024];
-int main()
+SoftTimerManager ST1;
+
+void Setup()
 {
     ST1.Init(t_buff, sizeof(t_buff));
-
-    auto now_start = std::chrono::system_clock::now();
-    auto duration_start = now_start.time_since_epoch();
-
-    // Превращаем прошедшее время в миллисекунды
-    auto start_time = std::chrono::duration_cast<std::chrono::milliseconds>(duration_start).count();
-
-    std::cout << "Hello World!\n";
 
     ST1.AddTimer(test_print, 1, STUnits::Seconds);
     ST1.AddDelayCall(test_print2, 3000);
@@ -51,15 +48,45 @@ int main()
     ST1.AddDelayCall(test_print2, 10000 + 10);
 
     Task1.Start((PrmFuncST)TaskFunc, &ST1);
+}
+void Loop()
+{
+    ST1.Update(millis());
+}
+
+
+//------------------------------------------------------------------------------------------------------
+//вспромогательные переменный для имитации функций времени и среды ардуино
+long long start_time;//начальное время, микросекунды
+long micros()
+{
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+
+    // Превращаем прошедшее время в миллисекунды
+    auto micros = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    micros -= start_time;
+
+    return micros;
+}
+
+long millis()
+{
+    return micros() / 1000;
+}
+
+int main()
+{
+    auto now_start = std::chrono::system_clock::now();
+    auto duration_start = now_start.time_since_epoch();
+
+    // Превращаем прошедшее время в миллисекунды
+    start_time = std::chrono::duration_cast<std::chrono::microseconds>(duration_start).count();
+
+    Setup();
+
     while (1)
     {
-        auto now = std::chrono::system_clock::now();
-        auto duration = now.time_since_epoch();
-
-        // Превращаем прошедшее время в миллисекунды
-        auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        millis -= start_time;
-
-        ST1.Update(millis);
+        Loop();
     };
 }

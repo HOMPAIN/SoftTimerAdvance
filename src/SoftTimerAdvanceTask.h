@@ -1,7 +1,6 @@
 //потоки на базе таймеров
+#pragma once
 
-#ifndef LIB_SOFTTIMER_SOFTTIMERTASK_PP_H_
-#define LIB_SOFTTIMER_SOFTTIMERTASK_PP_H_
 #include "SoftTimerAdvanceManger.h"
 #include "SoftTimerAdvanceInterface.h"
 
@@ -35,8 +34,9 @@ private:
 };
 
 //макросы, добавляются внутрь заданий
-#define TaskBeginPP();    switch(Task->Line){case 0: return;case 1: Task->Line=0;
-#define TaskDelayPP(X);   Task->Timer->Reset(X);Task->Line=(__LINE__);return;case (__LINE__): Task->Line=0;
-#define TaskEndPP();      }Task->Timer->Delete();
-
-#endif /* LIB_SOFTTIMER_SOFTTIMERTASK_PP_H_ */
+// Begin в начале функции таска
+#define TaskBegin();    switch(Task->Line){case 0: return;case 1: Task->Line=0;
+//задержка миллисекунды
+#define TaskDelay(X);   Task->Timer->Reset(X);Task->Line=(__LINE__);return;case (__LINE__): Task->Line=0;
+// END в конце функции таска
+#define TaskEnd();      }Task->Timer->Delete();
