@@ -39,6 +39,7 @@ public:
     void Reset(uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
     //установить защиту от удаления
     void SetDeleteProtection(uint16_t _Enable);
+    //прочитать, установлина ли защита от удаления
     uint16_t GetDeleteProtection();
     //0 - работает, 1 - остановлен
     uint16_t GetStatus();
@@ -51,5 +52,6 @@ public:
     void Reset();
     //установить новое время таймаута
     void SetTimeout(uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
+    //получить текущее время таймаута
     uint64_t GetTimeout(STUnits _Units = STUnits::Milliseconds);
 };
