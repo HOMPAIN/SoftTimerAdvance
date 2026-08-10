@@ -2,6 +2,7 @@
 
 #include "SoftTimerAdvanceManger.h"
 #include "SoftTimerAdvanceStructures.h"
+#include "SoftTimerAdvanceInterface.h"
 
 //универсальаная функция добавления таймера
 void* SoftTimerManager::AddManual(SoftTimerBase _Timer, uint64_t _Counter, uint64_t _Delay)
@@ -77,7 +78,7 @@ void* SoftTimerManager::AddManual(SoftTimerBase _Timer, uint64_t _Counter, uint6
 }
 
 //добавление таймера в микро, милли или секундах
-void* SoftTimerManager::AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Units)
+STimer* SoftTimerManager::AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Units)
 {
     SoftTimerBase timer;
     timer.Func = _Func;
@@ -91,9 +92,9 @@ void* SoftTimerManager::AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Un
     timer.Config.PrmEnable = 0;
     timer.Config.StrictMode = 0;
     timer.Config.Units = (uint16_t)_Units;
-    return AddManual(timer, 0, _Period);
+    return (STimer*)AddManual(timer, 0, _Period);
 }
-void* SoftTimerManager::AddTimer(PrmFuncST _Func, void* _Prm, uint64_t _Period, STUnits _Units)
+STimer* SoftTimerManager::AddTimer(PrmFuncST _Func, void* _Prm, uint64_t _Period, STUnits _Units)
 {
     SoftTimerBase timer;
     timer.Func = (VoidFuncST)_Func;
@@ -107,11 +108,11 @@ void* SoftTimerManager::AddTimer(PrmFuncST _Func, void* _Prm, uint64_t _Period, 
     timer.Config.PrmEnable = 1;
     timer.Config.StrictMode = 0;
     timer.Config.Units = (uint16_t)_Units;
-    return AddManual(timer, 0, _Period);
+    return (STimer*)AddManual(timer, 0, _Period);
 }
 
 //добавление задачи отложенного запуска в микро, милли или секундах
-void* SoftTimerManager::AddDelayCall(VoidFuncST _Func, uint64_t _Period, STUnits _Units)
+SDelay* SoftTimerManager::AddDelayCall(VoidFuncST _Func, uint64_t _Period, STUnits _Units)
 {
     SoftTimerBase timer;
     timer.Func = _Func;
@@ -119,15 +120,15 @@ void* SoftTimerManager::AddDelayCall(VoidFuncST _Func, uint64_t _Period, STUnits
     //timer.Delay = _Period;
     timer.MaxWorkTime = 0;
     timer.Params = 0;
-    timer.Config.Type = 2;//invoke
+    timer.Config.Type = 2;//delay
     timer.Config.Freeze = 0;
     timer.Config.DeleteProtection = 0;
     timer.Config.PrmEnable = 0;
     timer.Config.StrictMode = 0;
     timer.Config.Units = (uint16_t)_Units;
-    return AddManual(timer, 0, _Period);
+    return (SDelay*)AddManual(timer, 0, _Period);
 }
-void* SoftTimerManager::AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Period, STUnits _Units)
+SDelay* SoftTimerManager::AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Period, STUnits _Units)
 {
     SoftTimerBase timer;
     timer.Func = (VoidFuncST)_Func;
@@ -135,11 +136,43 @@ void* SoftTimerManager::AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Peri
     //timer.Delay = _Period;
     timer.MaxWorkTime = 0;
     timer.Params = _Prm;
-    timer.Config.Type = 2;//invoke
+    timer.Config.Type = 2;//delay
     timer.Config.Freeze = 0;
     timer.Config.DeleteProtection = 0;
     timer.Config.PrmEnable = 1;
     timer.Config.StrictMode = 0;
     timer.Config.Units = (uint16_t)_Units;
-    return AddManual(timer, 0, _Period);
+    return (SDelay*)AddManual(timer, 0, _Period);
+}
+STimeout* SoftTimerManager::AddTimeout(VoidFuncST _Func, uint64_t _Timeout, STUnits _Units)
+{
+    SoftTimerBase timer;
+    timer.Func = _Func;
+    //timer.Counter = 0;
+    //timer.Delay = _Period;
+    timer.MaxWorkTime = 0;
+    timer.Params = 0;
+    timer.Config.Type = 3;//timeout
+    timer.Config.Freeze = 1;
+    timer.Config.DeleteProtection = 1;
+    timer.Config.PrmEnable = 0;
+    timer.Config.StrictMode = 0;
+    timer.Config.Units = (uint16_t)_Units;
+    return (STimeout*)AddManual(timer, 0, _Timeout);
+}
+STimeout* SoftTimerManager::AddTimeout(PrmFuncST _Func, void* _Prm, uint64_t _Timeout, STUnits _Units)
+{
+    SoftTimerBase timer;
+    timer.Func = (VoidFuncST)_Func;
+    //timer.Counter = 0;
+    //timer.Delay = _Period;
+    timer.MaxWorkTime = 0;
+    timer.Params = _Prm;
+    timer.Config.Type = 3;//timeout
+    timer.Config.Freeze = 1;
+    timer.Config.DeleteProtection = 1;
+    timer.Config.PrmEnable = 1;
+    timer.Config.StrictMode = 0;
+    timer.Config.Units = (uint16_t)_Units;
+    return (STimeout*)AddManual(timer, 0, _Timeout);
 }

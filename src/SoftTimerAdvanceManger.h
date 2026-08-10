@@ -2,8 +2,8 @@
 
 #include <stdint.h>                 //для определения типов uint16_t...
 #include <string.h>                 //для работы memset
-//#include "SoftTimerInterface.h"
 #include "SoftTimerAdvanceStructures.h"
+#include "SoftTimerAdvanceInterface.h"
 
 
 
@@ -74,11 +74,14 @@ public:
     void Update_s(uint64_t _Seconds);
 
     //добавление таймера в микро, милли или секундах
-    void* AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
-    void* AddTimer(PrmFuncST _Func, void * _Prm, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
+    STimer* AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
+    STimer* AddTimer(PrmFuncST _Func, void * _Prm, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
     //добавление задачи отложенного запуска в микро, милли или секундах
-    void* AddDelayCall(VoidFuncST _Func, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
-    void* AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
+    SDelay* AddDelayCall(VoidFuncST _Func, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
+    SDelay* AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
+    //добавление таймаута
+    STimeout* AddTimeout(VoidFuncST _Func, uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
+    STimeout* AddTimeout(PrmFuncST _Func, void* _Prm, uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
 private:
 
     //пул таймеров с различным разрешением, используется только 1
