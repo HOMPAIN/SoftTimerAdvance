@@ -40,7 +40,7 @@ void setup() {
   Serial.println(max_timers_count);
 
   // Инициализируем таймер
-  ST.AddTimer(Timer3sec, 3, STUnits::Seconds);// Период 1 сек
+  ST.AddTimer(Timer3sec, 3, STUnits::Seconds);// Период 3 сек
 }
 
 void loop() {
