@@ -35,6 +35,10 @@ uint16_t SoftTimerManager::Init(uint8_t* _Buff, uint32_t _BuffSize, STResolution
     memset(this,0,sizeof(SoftTimerManager));
 
     Resolution = _Res;
+    if (_Buff == 0)
+        return 0;
+    //очищаем пул, в буфере может быть мусор
+    memset(_Buff, 0, _BuffSize);
     switch (_Res)
     {
     case 0://16 бит
@@ -70,66 +74,113 @@ void SoftTimerManager::Update(uint64_t _Time, STUnits _Units)
 }
 void SoftTimerManager::Update_us(uint64_t _uSeconds)
 {
-    uSeconds = _uSeconds;
-    mSeconds = uSeconds / 1000;
-    Seconds = mSeconds / 1000;
-    Working();
+    uint32_t dt_us = TimeDelta(_uSeconds, STUnits::Microseconds);
+    uint32_t dt_ms = DtDiv1000(dt_us, &RemUs);
+    uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
+    Working(dt_us, dt_ms, dt_s);
 }
 void SoftTimerManager::Update_ms(uint64_t _mSeconds)
 {
-    mSeconds = _mSeconds;
-    uSeconds = mSeconds * 1000;
-    Seconds = mSeconds / 1000;
-    Working();
+    uint32_t dt_ms = TimeDelta(_mSeconds, STUnits::Milliseconds);
+    uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
+    Working((uint64_t)dt_ms * 1000, dt_ms, dt_s);
 }
 void SoftTimerManager::Update_s(uint64_t _Seconds)
 {
-    Seconds = _Seconds;
-    mSeconds = Seconds * 1000;
-    uSeconds = mSeconds * 1000;
-    Working();
+    uint32_t dt_s = TimeDelta(_Seconds, STUnits::Seconds);
+    uint32_t dt_ms = (dt_s > 0xFFFFFFFFUL / 1000) ? 0xFFFFFFFFUL : dt_s * 1000;
+    Working((uint64_t)dt_s * 1000000, dt_ms, dt_s);
 }
 
-//цикл прохода по таймерам
-void SoftTimerManager::Working()
+//возвращает время, прошедшее с предыдущего вызова Update, в единицах источника времени
+//разность считается в 32 битах, поэтому переполнение 32-битных счётчиков millis()/micros() не мешает
+uint32_t SoftTimerManager::TimeDelta(uint64_t _Time, STUnits _Units)
 {
-
-    mSeconds = uSeconds/1000;
-    Seconds = mSeconds/1000;
-
-    //первый запуск, обнуляем время
-    if (uSecondsLast == 0)
+    uint32_t time = (uint32_t)_Time;
+    uint32_t dt = 0;
+    if (TimeStarted && TimeUnits == _Units)
+        dt = time - TimeLast;
+    else
     {
-        uSecondsLast = uSeconds;
-        mSecondsLast = mSeconds;
-        SecondsLast = Seconds;
-        return;
+        //первый запуск, время работы начинаем с переданного значения
+        if (!TimeStarted)
+        {
+            uint64_t ms = _Time;
+            uSeconds = _Time;
+            if (_Units == STUnits::Microseconds)
+            {
+                ms = _Time / 1000;
+                RemUs = (uint16_t)(_Time - ms * 1000);
+            }
+            else if (_Units == STUnits::Seconds)
+                ms = _Time * 1000;
+            if (_Units != STUnits::Microseconds)
+                uSeconds = ms * 1000;
+            uint64_t s = ms / 1000;
+            RemMs = (uint16_t)(ms - s * 1000);
+            mSeconds = (uint32_t)ms;
+            Seconds = (uint32_t)s;
+        }
+        //при смене единиц источника времени просто начинаем отсчёт заново
+        TimeStarted = 1;
+        TimeUnits = _Units;
     }
-    //счётчик таймеров
-    uint16_t dt_us = uSeconds - uSecondsLast;
-    uint16_t dt_ms = mSeconds - mSecondsLast;
-    uint16_t dt_s = Seconds - SecondsLast;
+    TimeLast = time;
+    return dt;
+}
+//перевод приращения времени в более крупные единицы (делитель 1000), остаток накапливается в _Rem
+uint32_t SoftTimerManager::DtDiv1000(uint32_t _Dt, uint16_t* _Rem)
+{
+    uint32_t dt = 0;
+    if (_Dt >= 1000)
+    {
+        dt = _Dt / 1000;
+        _Dt -= dt * 1000;
+    }
+    *_Rem += (uint16_t)_Dt;
+    if (*_Rem >= 1000)
+    {
+        *_Rem -= 1000;
+        dt++;
+    }
+    return dt;
+}
+
+//цикл прохода по таймерам, передаётся время, прошедшее с предыдущего вызова
+void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
+{
+    //время работы таймера
     uSecondsLast = uSeconds;
     mSecondsLast = mSeconds;
     SecondsLast = Seconds;
-    if(dt_us !=0)
+    uSeconds += _Dt_us;
+    mSeconds += _Dt_ms;
+    Seconds += _Dt_s;
+
+    //счётчик таймеров
+    if(_Dt_us !=0)
     {
+        uint32_t dt_us = (_Dt_us > 0xFFFFFFFFUL) ? 0xFFFFFFFFUL : (uint32_t)_Dt_us;
         switch (Resolution)
         {
         case 0://16 бит
-            Tick16(dt_us, dt_ms, dt_s);
+            Tick16(dt_us, _Dt_ms, _Dt_s);
             break;
         case 1://32 бит
-            Tick32(dt_us, dt_ms, dt_s);
+            Tick32(dt_us, _Dt_ms, _Dt_s);
             break;
         case 2://64 бит
-            Tick64(dt_us, dt_ms, dt_s);
+            Tick64(dt_us, _Dt_ms, _Dt_s);
             break;
         }
 
         //Telemetry.Tick(dt);
 
     }
+
+    //таймеров нет, в пуле нечего проверять
+    if (Count == 0)
+        return;
 
     //счётчик(номер таймера) выполнения теймеров, по одному за запуск
     Iterator++;
@@ -212,13 +263,13 @@ void SoftTimerManager::Working()
                 if (Timers16[Iterator].Counter >= Timers16[Iterator].Delay)
                     Timers16[Iterator].Counter = 0; //таймер не успевает, пропуск
             }
-            else if (Resolution == 2)
+            else if (Resolution == 1)
             {
                 Timers32[Iterator].Counter -= Timers32[Iterator].Delay;
                 if (Timers32[Iterator].Counter >= Timers32[Iterator].Delay)
                     Timers32[Iterator].Counter = 0; //таймер не успевает, пропуск
             }
-            else if (Resolution == 3)
+            else if (Resolution == 2)
             {
                 Timers64[Iterator].Counter -= Timers64[Iterator].Delay;
                 if (Timers64[Iterator].Counter >= Timers64[Iterator].Delay)
@@ -311,7 +362,7 @@ void SoftTimerManager::Working()
     }
 }
 //счётчик времени таймеров
-void SoftTimerManager::Tick16(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
+void SoftTimerManager::Tick16(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
 {
     for (int i = 0; i < Count; i++)
     {
@@ -319,26 +370,28 @@ void SoftTimerManager::Tick16(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
             continue;
         if (Timers16[i].Config.Freeze == 1)
             continue;
-        uint16_t counter_old = Timers16[i].Counter;
+        uint32_t dt = 0;
         switch (Timers16[i].Config.Units)
         {
         case STUnits::Microseconds:
-            Timers16[i].Counter += _Dt_us;
+            dt = _Dt_us;
             break;
         case STUnits::Milliseconds:
-            Timers16[i].Counter += _Dt_ms;
+            dt = _Dt_ms;
             break;
         case STUnits::Seconds:
-            Timers16[i].Counter += _Dt_s;
+            dt = _Dt_s;
             break;
         }
         //защита от переполнения
-        if (counter_old > Timers16[i].Counter)
+        if (dt > (uint16_t)(0xFFFF - Timers16[i].Counter))
             Timers16[i].Counter = 0xFFFF;
+        else
+            Timers16[i].Counter += (uint16_t)dt;
     }
 }
 
-void SoftTimerManager::Tick32(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
+void SoftTimerManager::Tick32(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
 {
     for (int i = 0; i < Count; i++)
     {
@@ -346,26 +399,28 @@ void SoftTimerManager::Tick32(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
             continue;
         if (Timers32[i].Config.Freeze == 1)
             continue;
-        uint32_t counter_old = Timers32[i].Counter;
+        uint32_t dt = 0;
         switch (Timers32[i].Config.Units)
         {
         case STUnits::Microseconds:
-            Timers32[i].Counter += _Dt_us;
+            dt = _Dt_us;
             break;
         case STUnits::Milliseconds:
-            Timers32[i].Counter += _Dt_ms;
+            dt = _Dt_ms;
             break;
         case STUnits::Seconds:
-            Timers32[i].Counter += _Dt_s;
+            dt = _Dt_s;
             break;
         }
         //защита от переполнения
-        if (counter_old > Timers32[i].Counter)
-            Timers32[i].Counter = 0xFFFF;
+        if (dt > 0xFFFFFFFFUL - Timers32[i].Counter)
+            Timers32[i].Counter = 0xFFFFFFFFUL;
+        else
+            Timers32[i].Counter += dt;
     }
 }
 
-void SoftTimerManager::Tick64(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
+void SoftTimerManager::Tick64(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
 {
     for (int i = 0; i < Count; i++)
     {
@@ -373,21 +428,23 @@ void SoftTimerManager::Tick64(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s)
             continue;
         if (Timers64[i].Config.Freeze == 1)
             continue;
-        uint64_t counter_old = Timers64[i].Counter;
+        uint32_t dt = 0;
         switch (Timers64[i].Config.Units)
         {
         case STUnits::Microseconds:
-            Timers64[i].Counter += _Dt_us;
+            dt = _Dt_us;
             break;
         case STUnits::Milliseconds:
-            Timers64[i].Counter += _Dt_ms;
+            dt = _Dt_ms;
             break;
         case STUnits::Seconds:
-            Timers64[i].Counter += _Dt_s;
+            dt = _Dt_s;
             break;
         }
         //защита от переполнения
-        if (counter_old > Timers64[i].Counter)
-            Timers64[i].Counter = 0xFFFF;
+        if (dt > 0xFFFFFFFFFFFFFFFFULL - Timers64[i].Counter)
+            Timers64[i].Counter = 0xFFFFFFFFFFFFFFFFULL;
+        else
+            Timers64[i].Counter += dt;
     }
 }

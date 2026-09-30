@@ -68,6 +68,7 @@ public:
     uint16_t Init(uint8_t * _Buff, uint32_t _BuffSize, STResolution _Res = STResolution::Bits32);
 
     //работа таймера, передаётся текущее время, можно вызывать любую функцию
+    //источник времени должен быть 32- или 64-битным счётчиком (millis(), micros()), его переполнение обрабатывается
     void Update(uint64_t _Time, STUnits _Units = STUnits::Milliseconds);
     void Update_us(uint64_t _uSeconds);
     void Update_ms(uint64_t _mSeconds);
@@ -91,14 +92,26 @@ private:
 
     //универсальаная функция добавления таймера
     void* AddManual(SoftTimerBase _Timer, uint64_t _Counter, uint64_t _Delay);
-    //цикл прохода по таймерам
-    void Working();
+    //цикл прохода по таймерам, передаётся время, прошедшее с предыдущего вызова
+    void Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
     //счётчик времени таймеров
-    void Tick16(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s);
+    void Tick16(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
     //счётчик времени таймеров
-    void Tick32(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s);
+    void Tick32(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
     //счётчик времени таймеров
-    void Tick64(uint16_t _Dt_us, uint16_t _Dt_ms, uint16_t _Dt_s);
+    void Tick64(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
+
+    //время, прошедшее с предыдущего вызова Update, в единицах источника времени
+    uint32_t TimeDelta(uint64_t _Time, STUnits _Units);
+    //перевод приращения времени в более крупные единицы (делитель 1000), остаток накапливается в _Rem
+    uint32_t DtDiv1000(uint32_t _Dt, uint16_t* _Rem);
+
+    //состояние источника времени, для расчёта приращения между вызовами Update
+    uint32_t TimeLast;      //предыдущее значение времени, переданное в Update
+    uint16_t TimeUnits;     //единицы, в которых оно было передано
+    uint16_t TimeStarted;   //1 - первое значение времени уже получено
+    uint16_t RemUs;         //остаток микросекунд, не вошедший в mSeconds
+    uint16_t RemMs;         //остаток миллисекунд, не вошедший в Seconds
 
     uint16_t Lock;//блокировка одновременного доступа
 };

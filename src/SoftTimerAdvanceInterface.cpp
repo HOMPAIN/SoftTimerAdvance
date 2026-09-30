@@ -164,6 +164,11 @@ void STimeout::Reset()
         break;
     }
 }
+//остановить отсчёт таймаута без удаления
+void STimeout::Stop()
+{
+    Config.Freeze = 1;
+}
 //установить новое время таймаута
 void STimeout::SetTimeout(uint64_t _Timeout, STUnits _Units)
 {

@@ -50,6 +50,8 @@ class STimeout :public STBase
 public:
     //сбросить таймаут
     void Reset();
+    //остановить отсчёт таймаута без удаления, повторный запуск через Reset()
+    void Stop();
     //установить новое время таймаута
     void SetTimeout(uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
     //получить текущее время таймаута
