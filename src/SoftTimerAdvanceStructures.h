@@ -17,7 +17,7 @@
 enum STResolution : uint16_t {
     Bits16 = 0,
     Bits32 = 1,
-    Bits64 = 2
+    BitsAuto = 2                    //разрешение выбирается автоматически по периоду таймера
 };
 
 enum STUnits : uint16_t {
@@ -39,7 +39,7 @@ public:
     uint16_t DeleteProtection : 1;    //1 - защита разового таймера от удаления, при даходе счётчика до 0 таймер будет заморожен
     uint16_t PrmEnable : 1;           //0 - таймер без параметров, 1 с параметрами
     uint16_t StrictMode : 2;          //0 - строгий режим(без пропусков), 1 пытается сохранить частоту, но допускает пропуски выполнеия, 2 - сбрасывает счётчик при каждом запуске
-    uint16_t Resolution : 2;        //разрешение таймера , 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
+    uint16_t Resolution : 2;        //разрешение таймера , 0 - 16 бит, 1 - 32 бита
     uint16_t Units : 2;             //0 микро, 1- милли, 2 - секунды. Единицы измерения таймера
     uint16_t res : 5;//резерв
 };
@@ -52,6 +52,14 @@ public:
     void* Params;                   //параметры для передачи в функцию таймера
     SoftTimerConfig Config;      //конфигурация таймера
     uint16_t MaxWorkTime;           //максимальное время работы функции (для телеметрии)
+
+    //доступ к счётчику и периоду таймера с учётом его разрешения
+    uint32_t CounterGet();
+    void CounterSet(uint32_t _Counter);
+    uint32_t DelayGet();
+    //задать период и единицы измерения, счётчик сбрасывается
+    //если значение не помещается в 16-битный таймер, он переходит на более крупные единицы с округлением
+    void DelaySet(uint32_t _Delay, uint16_t _Units);
 private:
 };
 
@@ -61,17 +69,6 @@ class SoftTimer16 : public SoftTimerBase
 public:
     uint16_t Counter;               //счётчик, при доходе до 0 функция таймера вызывается
     uint16_t Delay;                 //периуд таймера мс, если 0 то таймер вызывается 1 раз и удалёется
-
-    //заполнить из универсального таймера
-    void FromTimer(SoftTimerBase _Timer, uint16_t _Counter, uint16_t _Delay)
-    {
-        Func = _Timer.Func;
-        Params = _Timer.Params;
-        Config = _Timer.Config;
-        MaxWorkTime = 0;
-        Counter = _Counter;
-        Delay = _Delay;
-    }
 private:
 };
 
@@ -81,36 +78,48 @@ class SoftTimer32 : public SoftTimerBase
 public:
     uint32_t Counter;               //счётчик, при доходе до 0 функция таймера вызывается
     uint32_t Delay;                 //периуд таймера мс, если 0 то таймер вызывается 1 раз и удалёется
-
-    //заполнить из универсального таймера
-    void FromTimer(SoftTimerBase _Timer, uint32_t _Counter, uint32_t _Delay)
-    {
-        Func = _Timer.Func;
-        Params = _Timer.Params;
-        Config = _Timer.Config;
-        MaxWorkTime = 0;
-        Counter = _Counter;
-        Delay = _Delay;
-    }
 private:
 };
 
-//класс описания таймера с разрешением 64 бит в пуле
-class SoftTimer64 : public SoftTimerBase
+inline uint32_t SoftTimerBase::CounterGet()
 {
-public:
-    uint64_t Counter;               //счётчик, при доходе до 0 функция таймера вызывается
-    uint64_t Delay;                 //периуд таймера мс, если 0 то таймер вызывается 1 раз и удалёется
-
-    //заполнить из универсального таймера
-    void FromTimer(SoftTimerBase _Timer, uint64_t _Counter, uint64_t _Delay)
+    if (Config.Resolution == STResolution::Bits16)
+        return ((SoftTimer16*)this)->Counter;
+    return ((SoftTimer32*)this)->Counter;
+}
+inline void SoftTimerBase::CounterSet(uint32_t _Counter)
+{
+    if (Config.Resolution == STResolution::Bits16)
+        ((SoftTimer16*)this)->Counter = (_Counter > 0xFFFF) ? 0xFFFF : (uint16_t)_Counter;
+    else
+        ((SoftTimer32*)this)->Counter = _Counter;
+}
+inline uint32_t SoftTimerBase::DelayGet()
+{
+    if (Config.Resolution == STResolution::Bits16)
+        return ((SoftTimer16*)this)->Delay;
+    return ((SoftTimer32*)this)->Delay;
+}
+inline void SoftTimerBase::DelaySet(uint32_t _Delay, uint16_t _Units)
+{
+    if (Config.Resolution == STResolution::Bits16)
     {
-        Func = _Timer.Func;
-        Params = _Timer.Params;
-        Config = _Timer.Config;
-        MaxWorkTime = 0;
-        Counter = _Counter;
-        Delay = _Delay;
+        //значение не помещается в 16 бит, переходим на более крупные единицы с округлением
+        while (_Delay > 0xFFFF && _Units < STUnits::Seconds)
+        {
+            _Delay = _Delay / 1000 + ((_Delay % 1000) >= 500);
+            _Units++;
+        }
+        if (_Delay > 0xFFFF)
+            _Delay = 0xFFFF;
+        Config.Units = _Units;
+        ((SoftTimer16*)this)->Counter = 0;
+        ((SoftTimer16*)this)->Delay = (uint16_t)_Delay;
     }
-private:
-};
+    else
+    {
+        Config.Units = _Units;
+        ((SoftTimer32*)this)->Counter = 0;
+        ((SoftTimer32*)this)->Delay = _Delay;
+    }
+}

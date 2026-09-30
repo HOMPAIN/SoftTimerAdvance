@@ -47,11 +47,10 @@ public:
     uint32_t mSecondsLast;  //миллисекунды
     uint32_t SecondsLast;   //секунды
 
-    uint16_t Size;    //максимальное количество таймеров
-    uint16_t Count;   //количество занятых таймеров
+    uint16_t Size;    //количество 32-битных таймеров, которое помещается в пустой пул (16-битных помещается больше)
+    uint16_t Count16; //количество занятых ячеек 16-битных таймеров, они заполняют пул с начала
+    uint16_t Count32; //количество занятых ячеек 32-битных таймеров, они заполняют пул с конца
     uint16_t Iterator;//счётчик для перебора таймеров для запуска по обному за проход
-
-    STResolution Resolution; //разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
 
     //телеметрия таймера
     SoftTimerTelemetry_pp Telemetry;
@@ -63,43 +62,50 @@ public:
     }
 
     //инициализация парамтетров мэнеджера, возращает количество таймеров доступных в пуле
-    //_Res - разрешение таймеров, 0 - 16 бит, 1 - 32 биты, 2 - 64 бита
+    //(считается по 32-битным таймерам, 16-битных помещается больше)
     //_Buff - буффер для пула таймеров, _BuffSize - размер буффера в байтах
-    uint16_t Init(uint8_t * _Buff, uint32_t _BuffSize, STResolution _Res = STResolution::Bits32);
+    uint16_t Init(uint8_t * _Buff, uint32_t _BuffSize);
 
     //работа таймера, передаётся текущее время, можно вызывать любую функцию
     //источник времени должен быть 32- или 64-битным счётчиком (millis(), micros()), его переполнение обрабатывается
-    void Update(uint64_t _Time, STUnits _Units = STUnits::Milliseconds);
-    void Update_us(uint64_t _uSeconds);
-    void Update_ms(uint64_t _mSeconds);
-    void Update_s(uint64_t _Seconds);
+    //возвращает время до следующего срабатывания таймера в микросекундах (см. GetTimeToNext), его можно использовать для сна
+    uint32_t Update(uint64_t _Time, STUnits _Units = STUnits::Milliseconds);
+    uint32_t Update_us(uint64_t _uSeconds);
+    uint32_t Update_ms(uint64_t _mSeconds);
+    uint32_t Update_s(uint64_t _Seconds);
+
+    //время до ближайшего срабатывания таймера в микросекундах
+    //0 - есть таймер, готовый к запуску, нужно снова вызвать Update
+    //0xFFFFFFFF - работающих таймеров нет (или ждать дольше 71 минуты)
+    uint32_t GetTimeToNext();
 
     //добавление таймера в микро, милли или секундах
-    STimer* AddTimer(VoidFuncST _Func, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
-    STimer* AddTimer(PrmFuncST _Func, void * _Prm, uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
+    //_Res - разрешение таймера. По умолчанию выбирается по периоду: до 65535 - 16 бит (занимает меньше памяти), больше - 32 бита
+    //Таймеры в микросекундах по умолчанию всегда 32 бита
+    //Если период позже будет увеличен выше 65535, стоит сразу указать STResolution::Bits32
+    STimer* AddTimer(VoidFuncST _Func, uint32_t _Period, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
+    STimer* AddTimer(PrmFuncST _Func, void * _Prm, uint32_t _Period, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
     //добавление задачи отложенного запуска в микро, милли или секундах
-    SDelay* AddDelayCall(VoidFuncST _Func, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
-    SDelay* AddDelayCall(PrmFuncST _Func, void* _Prm, uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
+    SDelay* AddDelayCall(VoidFuncST _Func, uint32_t _Delay, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
+    SDelay* AddDelayCall(PrmFuncST _Func, void* _Prm, uint32_t _Delay, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
     //добавление таймаута
-    STimeout* AddTimeout(VoidFuncST _Func, uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
-    STimeout* AddTimeout(PrmFuncST _Func, void* _Prm, uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
+    STimeout* AddTimeout(VoidFuncST _Func, uint32_t _Timeout, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
+    STimeout* AddTimeout(PrmFuncST _Func, void* _Prm, uint32_t _Timeout, STUnits _Units = STUnits::Milliseconds, STResolution _Res = STResolution::BitsAuto);
 private:
 
-    //пул таймеров с различным разрешением, используется только 1
-    SoftTimer16* Timers16;
-    SoftTimer32* Timers32;
-    SoftTimer64* Timers64;
+    //общий пул таймеров: 16-битные заполняют его с начала, 32-битные с конца навстречу им
+    SoftTimer16* Timers16;      //начало пула, 16-битный таймер n лежит в Timers16[n]
+    SoftTimer32* Timers32End;   //конец пула, 32-битный таймер n лежит в Timers32End[-1 - n]
+    uint32_t PoolSize;          //размер пула в байтах
 
     //универсальаная функция добавления таймера
-    void* AddManual(SoftTimerBase _Timer, uint64_t _Counter, uint64_t _Delay);
+    void* AddManual(SoftTimerBase _Timer, uint32_t _Delay, STResolution _Res);
+    //поиск свободной ячейки (удалённого таймера) среди занятых ячеек заданного разрешения, 0 если такой нет
+    SoftTimerBase* FindFree(STResolution _Res);
     //цикл прохода по таймерам, передаётся время, прошедшее с предыдущего вызова
     void Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
     //счётчик времени таймеров
-    void Tick16(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
-    //счётчик времени таймеров
-    void Tick32(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
-    //счётчик времени таймеров
-    void Tick64(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
+    void Tick(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s);
 
     //время, прошедшее с предыдущего вызова Update, в единицах источника времени
     uint32_t TimeDelta(uint64_t _Time, STUnits _Units);

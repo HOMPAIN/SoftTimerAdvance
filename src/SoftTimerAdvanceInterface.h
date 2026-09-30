@@ -1,4 +1,6 @@
 //тут описаны классы реализующие интерфесы взаимодействия с таймерами
+//время в 16-битном таймере ограничено 65535: если новое значение не помещается,
+//таймер переходит на более крупные единицы измерения с округлением (например 90500 мс -> 91 сек)
 #pragma once
 #include <stdint.h>                 //для определения типов uint16_t...
 #include "SoftTimerAdvanceStructures.h"
@@ -10,7 +12,7 @@ public:
     //вызвать как можно быстрее
     void ForceCell();
     //возвраает время до следующего запуска
-    uint64_t GetDelay(STUnits _Units = STUnits::Milliseconds);
+    uint32_t GetDelay(STUnits _Units = STUnits::Milliseconds);
     //удалить таймер
     void Delete();
 };
@@ -19,9 +21,9 @@ class STimer :public STBase
 {
 public:
     //задать новый период работы таймера, _Units задаёт размерность времени, по умолчанию миллисек
-    void SetPeriod(uint64_t _Period, STUnits _Units = STUnits::Milliseconds);
+    void SetPeriod(uint32_t _Period, STUnits _Units = STUnits::Milliseconds);
     //получить текущий период, _Units задаёт размерность времени
-    uint64_t GetPeriod(STUnits _Units = STUnits::Milliseconds);
+    uint32_t GetPeriod(STUnits _Units = STUnits::Milliseconds);
     //сбросить таймер, будет вызван через период
     void Reset();
     //заморозить таймер
@@ -36,7 +38,7 @@ class SDelay :public STBase
 {
 public:
     //перезагрузить с новой задержкой
-    void Reset(uint64_t _Delay, STUnits _Units = STUnits::Milliseconds);
+    void Reset(uint32_t _Delay, STUnits _Units = STUnits::Milliseconds);
     //установить защиту от удаления
     void SetDeleteProtection(uint16_t _Enable);
     //прочитать, установлина ли защита от удаления
@@ -53,7 +55,7 @@ public:
     //остановить отсчёт таймаута без удаления, повторный запуск через Reset()
     void Stop();
     //установить новое время таймаута
-    void SetTimeout(uint64_t _Timeout, STUnits _Units = STUnits::Milliseconds);
+    void SetTimeout(uint32_t _Timeout, STUnits _Units = STUnits::Milliseconds);
     //получить текущее время таймаута
-    uint64_t GetTimeout(STUnits _Units = STUnits::Milliseconds);
+    uint32_t GetTimeout(STUnits _Units = STUnits::Milliseconds);
 };

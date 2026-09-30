@@ -11,7 +11,8 @@ void STTask::Start(PrmFuncST _Func, SoftTimerManager* _STManager, STTask *_Paren
     TimerManager = _STManager;
     TaskParent = _ParentTask;
 
-    Timer = (SDelay*)TimerManager->AddDelayCall(_Func, this, 0);
+    //32 бита, чтобы TaskDelay не был ограничен 65535 мс
+    Timer = (SDelay*)TimerManager->AddDelayCall(_Func, this, 0, STUnits::Milliseconds, STResolution::Bits32);
     Timer->SetDeleteProtection(1);
 }
 //запустить дочерную задачу из текущей
