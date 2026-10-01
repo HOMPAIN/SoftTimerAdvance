@@ -119,21 +119,25 @@ uint32_t SoftTimerManager::Update_us(uint64_t _uSeconds)
     uint32_t dt_us = TimeDelta(_uSeconds, STUnits::Microseconds);
     uint32_t dt_ms = DtDiv1000(dt_us, &RemUs);
     uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
-    Working(dt_us, dt_ms, dt_s);
+    //если таймер выполнялся, время до следующего не считаем: нужно сразу вызвать Update ещё раз
+    if (Working(dt_us, dt_ms, dt_s))
+        return 0;
     return GetTimeToNext(STUnits::Microseconds);
 }
 uint32_t SoftTimerManager::Update_ms(uint64_t _mSeconds)
 {
     uint32_t dt_ms = TimeDelta(_mSeconds, STUnits::Milliseconds);
     uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
-    Working((uint64_t)dt_ms * 1000, dt_ms, dt_s);
+    if (Working((uint64_t)dt_ms * 1000, dt_ms, dt_s))
+        return 0;
     return GetTimeToNext(STUnits::Milliseconds);
 }
 uint32_t SoftTimerManager::Update_s(uint64_t _Seconds)
 {
     uint32_t dt_s = TimeDelta(_Seconds, STUnits::Seconds);
     uint32_t dt_ms = (dt_s > 0xFFFFFFFFUL / 1000) ? 0xFFFFFFFFUL : dt_s * 1000;
-    Working((uint64_t)dt_s * 1000000, dt_ms, dt_s);
+    if (Working((uint64_t)dt_s * 1000000, dt_ms, dt_s))
+        return 0;
     return GetTimeToNext(STUnits::Seconds);
 }
 
@@ -157,7 +161,12 @@ uint32_t SoftTimerManager::GetTimeToNext(STUnits _Units)
     for (uint16_t i = 0; i < Count16; i++)
     {
         SoftTimer16* timer = &Timers16[i];
-        if (timer->Func == 0 || timer->Config.Freeze == 1)
+        if (timer->Func == 0)
+            continue;
+        //есть невыполненная заявка из прерывания, её выполнит следующий Update
+        if (timer->RequestPending())
+            return 0;
+        if (timer->Config.Freeze == 1)
             continue;
         if (timer->Counter >= timer->Delay)
             return 0;
@@ -170,7 +179,11 @@ uint32_t SoftTimerManager::GetTimeToNext(STUnits _Units)
     for (uint16_t i = 0; i < Count32; i++)
     {
         SoftTimer32* timer = Timers32End - 1 - i;
-        if (timer->Func == 0 || timer->Config.Freeze == 1)
+        if (timer->Func == 0)
+            continue;
+        if (timer->RequestPending())
+            return 0;
+        if (timer->Config.Freeze == 1)
             continue;
         if (timer->Counter >= timer->Delay)
             return 0;
@@ -278,7 +291,8 @@ uint32_t SoftTimerManager::DtDiv1000(uint32_t _Dt, uint16_t* _Rem)
 }
 
 //цикл прохода по таймерам, передаётся время, прошедшее с предыдущего вызова
-void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
+//возвращает 1, если была выполнена функция таймера
+uint16_t SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
 {
     //время работы таймера
     uSecondsLast = uSeconds;
@@ -300,7 +314,7 @@ void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
     //таймеров нет, в пуле нечего проверять
     uint16_t count = Count16 + Count32;
     if (count == 0)
-        return;
+        return 0;
 
     //счётчик(номер таймера) выполнения теймеров, по одному за запуск
     Iterator++;
@@ -335,18 +349,21 @@ void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
             if (timer_base->Func != 0)
                 (*pool_count)++;
         }
-        return;
+        return 0;
     }
+
+    //выполняем заявку из прерывания до проверки готовности, чтобы сброшенный из прерывания таймер не сработал
+    timer_base->RequestApply();
 
     //таймер заморожен, пропускаем
     if (timer_base->Config.Freeze)
-        return;
+        return 0;
 
     //проверка готовности таймера, если таймер не готов, выходим
     uint32_t counter = timer_base->CounterGet();
     uint32_t delay = timer_base->DelayGet();
     if (counter < delay)
-        return;
+        return 0;
 
     //запамянам функцию, для телеметрии
     Telemetry.LastFunc = (VoidFuncST)timer_base->Func;
@@ -357,15 +374,15 @@ void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
         //режим отработки времени
         switch (timer_base->Config.StrictMode)
         {
-        case 1://пытается сохранить частоту, но допускает пропуски выполнеия
+        case (uint16_t)STMode::Skip://пытается сохранить частоту, но допускает пропуски выполнеия
             counter -= delay;
             if (counter >= delay)
                 counter = 0; //таймер не успевает, пропуск
             break;
-        case 2://сбрасывает счётчик при каждом запуске
+        case (uint16_t)STMode::Restart://сбрасывает счётчик при каждом запуске
             counter = 0;
             break;
-        default://строгий режим, он же по умолчанию
+        default://строгий режим: пропущенные вызовы копятся и выполняются подряд
             counter -= delay;
             break;
         }
@@ -417,8 +434,9 @@ void SoftTimerManager::Working(uint64_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
                 (*pool_count)++;
         }
     }
+    return 1;
 }
-//счётчик времени таймеров
+//счётчик времени таймеров, в этом же проходе выполняются заявки из прерываний (методы ...FromISR)
 void SoftTimerManager::Tick(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
 {
     //приращение времени по единицам измерения таймера (STUnits)
@@ -430,14 +448,17 @@ void SoftTimerManager::Tick(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
         SoftTimer16* timer = &Timers16[i];
         if (timer->Func == 0)
             continue;
-        if (timer->Config.Freeze == 1)
-            continue;
-        uint32_t dt = dt_units[timer->Config.Units];
-        //защита от переполнения
-        if (dt > (uint16_t)(0xFFFF - timer->Counter))
-            timer->Counter = 0xFFFF;
-        else
-            timer->Counter += (uint16_t)dt;
+        if (timer->Config.Freeze == 0)
+        {
+            uint32_t dt = dt_units[timer->Config.Units];
+            //защита от переполнения
+            if (dt > (uint16_t)(0xFFFF - timer->Counter))
+                timer->Counter = 0xFFFF;
+            else
+                timer->Counter += (uint16_t)dt;
+        }
+        //заявка после счётчика времени, чтобы сброшенный таймер отсчитывал время с этого момента
+        timer->RequestApply();
     }
 
     //32-битные таймеры
@@ -446,13 +467,15 @@ void SoftTimerManager::Tick(uint32_t _Dt_us, uint32_t _Dt_ms, uint32_t _Dt_s)
         SoftTimer32* timer = Timers32End - 1 - i;
         if (timer->Func == 0)
             continue;
-        if (timer->Config.Freeze == 1)
-            continue;
-        uint32_t dt = dt_units[timer->Config.Units];
-        //защита от переполнения
-        if (dt > 0xFFFFFFFFUL - timer->Counter)
-            timer->Counter = 0xFFFFFFFFUL;
-        else
-            timer->Counter += dt;
+        if (timer->Config.Freeze == 0)
+        {
+            uint32_t dt = dt_units[timer->Config.Units];
+            //защита от переполнения
+            if (dt > 0xFFFFFFFFUL - timer->Counter)
+                timer->Counter = 0xFFFFFFFFUL;
+            else
+                timer->Counter += dt;
+        }
+        timer->RequestApply();
     }
 }

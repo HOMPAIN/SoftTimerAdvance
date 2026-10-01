@@ -84,6 +84,8 @@ void* SoftTimerManager::AddManual(SoftTimerBase _Timer, uint32_t _Delay, STResol
     ptr->Params = _Timer.Params;
     ptr->Config = _Timer.Config;
     ptr->MaxWorkTime = 0;
+    ptr->Request = 0;
+    ptr->RequestDone = 0;
     ptr->DelaySet(_Delay, _Timer.Config.Units);
     ptr->Func = _Timer.Func;
 
@@ -103,7 +105,7 @@ STimer* SoftTimerManager::AddTimer(VoidFuncST _Func, uint32_t _Period, STUnits _
     timer.Config.Freeze = 0;
     timer.Config.DeleteProtection = 1;
     timer.Config.PrmEnable = 0;
-    timer.Config.StrictMode = 0;
+    timer.Config.StrictMode = (uint16_t)STMode::Skip;//по умолчанию пропущенные вызовы не копятся
     timer.Config.Units = (uint16_t)_Units;
     return (STimer*)AddManual(timer, _Period, _Res);
 }
@@ -117,7 +119,7 @@ STimer* SoftTimerManager::AddTimer(PrmFuncST _Func, void* _Prm, uint32_t _Period
     timer.Config.Freeze = 0;
     timer.Config.DeleteProtection = 1;
     timer.Config.PrmEnable = 1;
-    timer.Config.StrictMode = 0;
+    timer.Config.StrictMode = (uint16_t)STMode::Skip;//по умолчанию пропущенные вызовы не копятся
     timer.Config.Units = (uint16_t)_Units;
     return (STimer*)AddManual(timer, _Period, _Res);
 }

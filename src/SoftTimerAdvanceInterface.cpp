@@ -89,6 +89,16 @@ uint16_t STimer::GetFreezeStatus()
 {
     return Config.Freeze;
 }
+//задать режим работы таймера
+void STimer::SetMode(STMode _Mode)
+{
+    Config.StrictMode = (uint16_t)_Mode;
+}
+//получить режим работы таймера
+STMode STimer::GetMode()
+{
+    return (STMode)Config.StrictMode;
+}
 //сбросить таймаут
 void STimeout::Reset()
 {
