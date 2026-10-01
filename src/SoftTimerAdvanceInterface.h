@@ -10,11 +10,13 @@ class STBase :protected SoftTimerBase
 {
 public:
     //вызвать как можно быстрее
-    void ForceCell();
+    void ForceCall();
     //возвраает время до следующего запуска
     uint32_t GetDelay(STUnits _Units = STUnits::Milliseconds);
     //удалить таймер
     void Delete();
+    //время работы функции таймера в микросекундах (не больше 65535), нужна настроенная телеметрия менеджера
+    uint16_t GetWorkTime();
 };
 //интерфейс таймера
 class STimer :public STBase

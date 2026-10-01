@@ -34,8 +34,9 @@ void setup() {
   // Инициализация менеджера таймеров, возвращает количество таймеров, которое помещается в буфер
   ST.Init(t_buff, sizeof(t_buff));
 
-  // Инициализация и запуск таска
-  Task1.Start((PrmFuncST)TaskFunc, &ST);
+  // Инициализация и запуск таска, возвращает код ошибки (например, если в буфере нет места для таймера)
+  if (Task1.Start((PrmFuncST)TaskFunc, &ST) != STTaskResult::Ok)
+    Serial.println("Task start error");
 }
 
 void loop() {

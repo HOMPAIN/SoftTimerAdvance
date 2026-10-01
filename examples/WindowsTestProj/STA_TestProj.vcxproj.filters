@@ -20,7 +20,7 @@
     <ClCompile Include="..\..\src\SoftTimerAdvanceInterface.cpp">
       <Filter>Исходный код</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\SoftTimerAdvanceManger.cpp">
+    <ClCompile Include="..\..\src\SoftTimerAdvanceManager.cpp">
       <Filter>Исходный код</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\SoftTimerAdvanceTask.cpp">
@@ -34,7 +34,7 @@
     <ClInclude Include="..\..\src\SoftTimerAdvanceInterface.h">
       <Filter>Исходный код</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\SoftTimerAdvanceManger.h">
+    <ClInclude Include="..\..\src\SoftTimerAdvanceManager.h">
       <Filter>Исходный код</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\SoftTimerAdvanceStructures.h">

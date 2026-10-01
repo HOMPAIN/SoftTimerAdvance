@@ -5,6 +5,13 @@
 // Для проверки откройте монитор порта и отправляйте любые символы
 #include "SoftTimerAdvance.h"
 
+// Пин светодиода, при необходимости замените на свой
+#ifdef LED_BUILTIN
+const int LED_PIN = LED_BUILTIN;
+#else
+const int LED_PIN = 2;
+#endif
+
 // Буфер для хранения таймеров
 uint8_t t_buff[1024];
 // Менеджер таймеров
@@ -16,14 +23,14 @@ STimeout *RxTimeout = 0;
 void NoDataTimeout()
 {
   Serial.println("Timeout: no data for 3 sec");
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_PIN, LOW);
   // После срабатывания таймаут останавливается и не удаляется,
   // повторно он запустится при следующем вызове Reset()
 }
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
 
   // Инициализация менеджера таймеров, возвращает количество таймеров, которое помещается в буфер
   int max_timers_count = ST.Init(t_buff, sizeof(t_buff));
@@ -32,6 +39,12 @@ void setup() {
 
   // Создаём таймаут 3 сек. После создания таймаут остановлен, отсчёт начнётся после Reset()
   RxTimeout = ST.AddTimeout(NoDataTimeout, 3, STUnits::Seconds);
+  // Если в буфере нет места, функции добавления возвращают 0. Пользоваться таким указателем нельзя
+  if (RxTimeout == 0)
+  {
+    Serial.println("Error: no free timers");
+    while (true) {}
+  }
   // Запускаем отсчёт сразу, чтобы таймаут сработал, если данные не придут совсем
   RxTimeout->Reset();
 }
@@ -46,7 +59,7 @@ void loop() {
     char c = Serial.read();
     Serial.print("Received: ");
     Serial.println(c);
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(LED_PIN, HIGH);
     RxTimeout->Reset();
   }
 }

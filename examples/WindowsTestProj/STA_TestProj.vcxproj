@@ -143,14 +143,14 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\SoftTimerAdvanceAdd.cpp" />
     <ClCompile Include="..\..\src\SoftTimerAdvanceInterface.cpp" />
-    <ClCompile Include="..\..\src\SoftTimerAdvanceManger.cpp" />
+    <ClCompile Include="..\..\src\SoftTimerAdvanceManager.cpp" />
     <ClCompile Include="..\..\src\SoftTimerAdvanceTask.cpp" />
     <ClCompile Include="STA_TestProj.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\SoftTimerAdvance.h" />
     <ClInclude Include="..\..\src\SoftTimerAdvanceInterface.h" />
-    <ClInclude Include="..\..\src\SoftTimerAdvanceManger.h" />
+    <ClInclude Include="..\..\src\SoftTimerAdvanceManager.h" />
     <ClInclude Include="..\..\src\SoftTimerAdvanceStructures.h" />
     <ClInclude Include="..\..\src\SoftTimerAdvanceTask.h" />
   </ItemGroup>

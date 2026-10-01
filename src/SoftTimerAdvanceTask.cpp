@@ -1,41 +1,45 @@
 #include "SoftTimerAdvanceTask.h"
 
 //запуск задания
-void STTask::Start(PrmFuncST _Func, SoftTimerManager* _STManager, STTask *_ParentTask)
+STTaskResult STTask::Start(PrmFuncST _Func, SoftTimerManager* _STManager, STTask *_ParentTask)
 {
-    if(Line!=0)//таск уже запущен
-    {
-        //ErrorBrakepoint();
-    }
-    Line=1;
-    TimerManager = _STManager;
-    TaskParent = _ParentTask;
+    if (_Func == 0 || _STManager == 0)
+        return STTaskResult::BadParams;
+    if (Running)//таск уже запущен
+        return STTaskResult::AlreadyRunning;
 
     //32 бита, чтобы TaskDelay не был ограничен 65535 мс
-    Timer = (SDelay*)TimerManager->AddDelayCall(_Func, this, 0, STUnits::Milliseconds, STResolution::Bits32);
-    Timer->SetDeleteProtection(1);
+    SDelay* timer = _STManager->AddDelayCall(_Func, this, 0, STUnits::Milliseconds, STResolution::Bits32);
+    if (timer == 0)//в пуле нет места
+        return STTaskResult::NoTimers;
+    timer->SetDeleteProtection(1);
+
+    Timer = timer;
+    TimerManager = _STManager;
+    TaskParent = _ParentTask;
+    TaskChild = 0;
+    Line = 1;
+    Running = 1;
+    return STTaskResult::Ok;
 }
 //запустить дочерную задачу из текущей
-void STTask::StartChild(PrmFuncST _Func, STTask *_ChildTask)
+STTaskResult STTask::StartChild(PrmFuncST _Func, STTask *_ChildTask)
 {
-    TaskChild = _ChildTask;
+    if (_ChildTask == 0 || _ChildTask == this || TimerManager == 0)
+        return STTaskResult::BadParams;
 
-    _ChildTask->Start(_Func, TimerManager, this);
-
+    STTaskResult res = _ChildTask->Start(_Func, TimerManager, this);
+    if (res == STTaskResult::Ok)
+        TaskChild = _ChildTask;
+    return res;
 }
 //завершить таск если он работает
 void STTask::Abort()
 {
-   if (Line!=0)
+    if (Running)
     {
-        //останавливаем таймер
-        if (Timer != 0)
-        {
-            Timer->Delete();
-        }
-
-        //сбрасываем таск
-        Line = 0;
+        //останавливаем таймер и сбрасываем таск
+        End();
 
         //останавливаем дочерние таски, если они были
         if(TaskChild!=0)
@@ -48,5 +52,23 @@ void STTask::Abort()
 //запущен ли таск
 uint16_t STTask::IsRunning()
 {
-    return Line!=0;
+    return Running;
+}
+//пауза задачи, используется макросом TaskDelay
+void STTask::Delay(uint32_t _Time, uint16_t _Line)
+{
+    //задача прервана через Abort из собственной функции, продолжать её не нужно
+    if (!Running || Timer == 0)
+        return;
+    Timer->Reset(_Time);
+    Line = _Line;
+}
+//завершение задачи, используется макросом TaskEnd
+void STTask::End()
+{
+    if (Timer != 0)
+        Timer->Delete();
+    Timer = 0;
+    Line = 0;
+    Running = 0;
 }

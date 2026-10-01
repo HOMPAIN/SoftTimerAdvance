@@ -15,7 +15,7 @@ static uint32_t ConvertUnits(uint32_t _Time, uint16_t _From, uint16_t _To)
 }
 
 //вызвать как можно быстрее
-void STBase::ForceCell()
+void STBase::ForceCall()
 {
     CounterSet(DelayGet());
 }
@@ -25,7 +25,7 @@ uint32_t STBase::GetDelay(STUnits _Units)
     uint32_t counter = CounterGet();
     uint32_t delay = DelayGet();
     delay = (delay > counter) ? (delay - counter) : 0;
-    return ConvertUnits(delay, Config.Units, _Units);
+    return ConvertUnits(delay, Config.Units, (uint16_t)_Units);
 }
 
 //удалить таймер
@@ -33,11 +33,16 @@ void STBase::Delete()
 {
 	Func = 0;
 }
+//время работы функции таймера в микросекундах
+uint16_t STBase::GetWorkTime()
+{
+    return MaxWorkTime;
+}
 //перезагрузить с новой задержкой
 void SDelay::Reset(uint32_t _Delay, STUnits _Units)
 {
 	Config.Freeze = 0;
-    DelaySet(_Delay, _Units);
+    DelaySet(_Delay, (uint16_t)_Units);
 }
 //установить защиту от удаления
 void SDelay::SetDeleteProtection(uint16_t _Enable)
@@ -57,12 +62,12 @@ uint16_t SDelay::GetStatus()
 //задать новый период работы таймера, _Units задаёт размерность времени, по умолчанию миллисек
 void STimer::SetPeriod(uint32_t _Period, STUnits _Units)
 {
-    DelaySet(_Period, _Units);
+    DelaySet(_Period, (uint16_t)_Units);
 }
 //получить текущий период, _Units задаёт размерность времени
 uint32_t STimer::GetPeriod(STUnits _Units)
 {
-    return ConvertUnits(DelayGet(), Config.Units, _Units);
+    return ConvertUnits(DelayGet(), Config.Units, (uint16_t)_Units);
 }
 //сбросить таймер, будет вызван через период
 void STimer::Reset()
@@ -98,10 +103,10 @@ void STimeout::Stop()
 //установить новое время таймаута
 void STimeout::SetTimeout(uint32_t _Timeout, STUnits _Units)
 {
-    DelaySet(_Timeout, _Units);
+    DelaySet(_Timeout, (uint16_t)_Units);
 }
 //получить текущее время таймаута
 uint32_t STimeout::GetTimeout(STUnits _Units)
 {
-    return ConvertUnits(DelayGet(), Config.Units, _Units);
+    return ConvertUnits(DelayGet(), Config.Units, (uint16_t)_Units);
 }

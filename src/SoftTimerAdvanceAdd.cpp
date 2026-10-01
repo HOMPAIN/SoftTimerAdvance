@@ -1,6 +1,6 @@
 //в данном файле описаны функции добавления таймеров
 
-#include "SoftTimerAdvanceManger.h"
+#include "SoftTimerAdvanceManager.h"
 #include "SoftTimerAdvanceStructures.h"
 #include "SoftTimerAdvanceInterface.h"
 
@@ -33,7 +33,7 @@ void* SoftTimerManager::AddManual(SoftTimerBase _Timer, uint32_t _Delay, STResol
     //разрешение не задано, выбираем по периоду
     //микросекундные таймеры всегда 32 бита: 16-битный счётчик теряет время, если между вызовами Update проходит больше 65 мс
     if (_Res != STResolution::Bits16 && _Res != STResolution::Bits32)
-        _Res = (_Delay > 0xFFFF || _Timer.Config.Units == STUnits::Microseconds) ? STResolution::Bits32 : STResolution::Bits16;
+        _Res = (_Delay > 0xFFFF || _Timer.Config.Units == (uint16_t)STUnits::Microseconds) ? STResolution::Bits32 : STResolution::Bits16;
 
     uint16_t lock_write = 0;
     if (Lock) //уже идёт запись в другом месте, можно добавить таймер только в конец(возможно при создании таймера из прерывания)
@@ -74,8 +74,13 @@ void* SoftTimerManager::AddManual(SoftTimerBase _Timer, uint32_t _Delay, STResol
         return 0;
     }
 
+    //телеметрия: наибольшее заполнение пула
+    uint32_t used_now = (uint32_t)Count16 * sizeof(SoftTimer16) + (uint32_t)Count32 * sizeof(SoftTimer32);
+    if (used_now > Telemetry.PoolUsedMax)
+        Telemetry.PoolUsedMax = used_now;
+
     //функцию записываем последней, до этого ячейка считается свободной
-    _Timer.Config.Resolution = _Res;
+    _Timer.Config.Resolution = (uint16_t)_Res;
     ptr->Params = _Timer.Params;
     ptr->Config = _Timer.Config;
     ptr->MaxWorkTime = 0;

@@ -9,18 +9,19 @@
     uint16_t CPULoad;               //загрузка процессора % 0-100, для работы необходимо обновлять STuSeconds
     uint16_t WatchDogTime;          //максимально допустимое время одной функции
 
-    void * LastFanc;                //последняя выполненая функция
-    uint32_t LastFancTime;          //врем работы последней функции
+    void * LastFunc;                //последняя выполненая функция
+    uint32_t LastFuncTime;          //врем работы последней функции
 }SoftTimerTelemetry;
 */
 
-enum STResolution : uint16_t {
+//enum class, чтобы имена значений не попадали в глобальную область имён. Использовать как STUnits::Seconds
+enum class STResolution : uint16_t {
     Bits16 = 0,
     Bits32 = 1,
     BitsAuto = 2                    //разрешение выбирается автоматически по периоду таймера
 };
 
-enum STUnits : uint16_t {
+enum class STUnits : uint16_t {
     Microseconds = 0,
     Milliseconds = 1,
     Seconds = 2
@@ -83,29 +84,29 @@ private:
 
 inline uint32_t SoftTimerBase::CounterGet()
 {
-    if (Config.Resolution == STResolution::Bits16)
+    if (Config.Resolution == (uint16_t)STResolution::Bits16)
         return ((SoftTimer16*)this)->Counter;
     return ((SoftTimer32*)this)->Counter;
 }
 inline void SoftTimerBase::CounterSet(uint32_t _Counter)
 {
-    if (Config.Resolution == STResolution::Bits16)
+    if (Config.Resolution == (uint16_t)STResolution::Bits16)
         ((SoftTimer16*)this)->Counter = (_Counter > 0xFFFF) ? 0xFFFF : (uint16_t)_Counter;
     else
         ((SoftTimer32*)this)->Counter = _Counter;
 }
 inline uint32_t SoftTimerBase::DelayGet()
 {
-    if (Config.Resolution == STResolution::Bits16)
+    if (Config.Resolution == (uint16_t)STResolution::Bits16)
         return ((SoftTimer16*)this)->Delay;
     return ((SoftTimer32*)this)->Delay;
 }
 inline void SoftTimerBase::DelaySet(uint32_t _Delay, uint16_t _Units)
 {
-    if (Config.Resolution == STResolution::Bits16)
+    if (Config.Resolution == (uint16_t)STResolution::Bits16)
     {
         //значение не помещается в 16 бит, переходим на более крупные единицы с округлением
-        while (_Delay > 0xFFFF && _Units < STUnits::Seconds)
+        while (_Delay > 0xFFFF && _Units < (uint16_t)STUnits::Seconds)
         {
             _Delay = _Delay / 1000 + ((_Delay % 1000) >= 500);
             _Units++;
