@@ -54,7 +54,7 @@ uint16_t SoftTimerManager::Init(uint8_t* _Buff, uint32_t _BuffSize)
     return Size;
 }
 //работа таймера, передаётся текущее время, можно вызывать любую функцию
-//возвращает время до следующего срабатывания таймера в микросекундах
+//возвращает время до следующего срабатывания таймера в тех же единицах, в которых передано время
 uint32_t SoftTimerManager::Update(uint64_t _Time, STUnits _Units)
 {
     switch (_Units)
@@ -73,26 +73,35 @@ uint32_t SoftTimerManager::Update_us(uint64_t _uSeconds)
     uint32_t dt_ms = DtDiv1000(dt_us, &RemUs);
     uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
     Working(dt_us, dt_ms, dt_s);
-    return GetTimeToNext();
+    return GetTimeToNext(STUnits::Microseconds);
 }
 uint32_t SoftTimerManager::Update_ms(uint64_t _mSeconds)
 {
     uint32_t dt_ms = TimeDelta(_mSeconds, STUnits::Milliseconds);
     uint32_t dt_s = DtDiv1000(dt_ms, &RemMs);
     Working((uint64_t)dt_ms * 1000, dt_ms, dt_s);
-    return GetTimeToNext();
+    return GetTimeToNext(STUnits::Milliseconds);
 }
 uint32_t SoftTimerManager::Update_s(uint64_t _Seconds)
 {
     uint32_t dt_s = TimeDelta(_Seconds, STUnits::Seconds);
     uint32_t dt_ms = (dt_s > 0xFFFFFFFFUL / 1000) ? 0xFFFFFFFFUL : dt_s * 1000;
     Working((uint64_t)dt_s * 1000000, dt_ms, dt_s);
-    return GetTimeToNext();
+    return GetTimeToNext(STUnits::Seconds);
 }
 
-//время до ближайшего срабатывания таймера в микросекундах
-//0 - есть таймер, готовый к запуску, 0xFFFFFFFF - работающих таймеров нет (или ждать дольше 71 минуты)
-uint32_t SoftTimerManager::GetTimeToNext()
+//деление с округлением вверх
+static uint32_t CeilDiv(uint32_t _Value, uint32_t _Div)
+{
+    uint32_t res = _Value / _Div;
+    if (res * _Div != _Value)
+        res++;
+    return res;
+}
+
+//время до ближайшего срабатывания таймера, _Units задаёт размерность времени (округляется вверх)
+//0 - есть таймер, готовый к запуску, 0xFFFFFFFF - работающих таймеров нет (или значение не помещается в 32 бита)
+uint32_t SoftTimerManager::GetTimeToNext(STUnits _Units)
 {
     //минимальное оставшееся время по единицам измерения таймера (STUnits)
     uint32_t left_units[4] = { 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL };
@@ -123,22 +132,48 @@ uint32_t SoftTimerManager::GetTimeToNext()
             left_units[timer->Config.Units] = left;
     }
 
-    //перевод в микросекунды. Счётчики миллисекунд и секунд увеличиваются, когда накопится
+    uint32_t left_us = left_units[STUnits::Microseconds];
+    uint32_t left_ms = left_units[STUnits::Milliseconds];
+    uint32_t left_s = left_units[STUnits::Seconds];
+    const uint32_t none = 0xFFFFFFFFUL;//таймеров с такими единицами нет
+
+    //перевод в запрошенные единицы. Счётчики миллисекунд и секунд увеличиваются, когда накопится
     //целая единица, поэтому вычитаем уже накопленные остатки RemUs и RemMs
-    uint64_t next = left_units[STUnits::Microseconds];
-    if (left_units[STUnits::Milliseconds] != 0xFFFFFFFFUL)
+    uint32_t next = none;
+    uint64_t time;
+    switch (_Units)
     {
-        uint64_t us = (uint64_t)left_units[STUnits::Milliseconds] * 1000 - RemUs;
-        if (us < next)
-            next = us;
+    case STUnits::Microseconds:
+        next = left_us;
+        if (left_ms != none)
+        {
+            time = (uint64_t)left_ms * 1000 - RemUs;
+            if (time < next)
+                next = (uint32_t)time;
+        }
+        if (left_s != none)
+        {
+            time = ((uint64_t)left_s * 1000 - RemMs) * 1000 - RemUs;
+            if (time < next)
+                next = (uint32_t)time;
+        }
+        break;
+    case STUnits::Seconds:
+        next = left_s;
+        if (left_ms != none && CeilDiv(left_ms, 1000) < next)
+            next = CeilDiv(left_ms, 1000);
+        if (left_us != none && CeilDiv(left_us, 1000000UL) < next)
+            next = CeilDiv(left_us, 1000000UL);
+        break;
+    default://миллисекунды
+        next = left_ms;
+        if (left_s != none && left_s <= none / 1000 && left_s * 1000 - RemMs < next)
+            next = left_s * 1000 - RemMs;
+        if (left_us != none && CeilDiv(left_us, 1000) < next)
+            next = CeilDiv(left_us, 1000);
+        break;
     }
-    if (left_units[STUnits::Seconds] != 0xFFFFFFFFUL)
-    {
-        uint64_t us = ((uint64_t)left_units[STUnits::Seconds] * 1000 - RemMs) * 1000 - RemUs;
-        if (us < next)
-            next = us;
-    }
-    return (uint32_t)next;
+    return next;
 }
 
 //возвращает время, прошедшее с предыдущего вызова Update, в единицах источника времени
